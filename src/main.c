@@ -26,6 +26,7 @@ LOG_MODULE_REGISTER(finalproject,LOG_LEVEL_DBG);
 #define FIFTY_MV 50
 #define ONE_FIFTY_MV 150
 #define NUM_MEASUREMENT_PTS 5
+#define WINDOW_SIZE 20
 
 #define ADC_DT_SPEC_GET_BY_ALIAS(node_id)                    \
 {                                                            \
@@ -91,9 +92,10 @@ static int32_t val_mv_fast = 0;
 static bool usbregstatus;
 static uint8_t slow_data[NUM_MEASUREMENT_PTS] = {0};
 static uint8_t fast_data[NUM_MEASUREMENT_PTS] = {0};
+static uint8_t slow_queue[WINDOW_SIZE] = {0};
+static uint8_t fast_queue[WINDOW_SIZE] = {0};
 float slow_rms_window = 0;
 float fast_rms_window = 0;
-int rms_window_count = 0;
 
 /* Timers */
 //timer for heartbeat
@@ -330,11 +332,38 @@ void main(void)
       val_mv_slow = read_adc_val_slow();
       val_mv_fast = read_adc_val_fast();
       
-      if (rms_window_count < 20){
+      /* implement RMS sliding window */
+      int rms_window_count = 0;
+      int data_count = 0;
+      bool full = 0;
+      int full_inc = 0;
+
+      if (rms_window_count > 10) { full = 1; }
+      if (full == 0){
+        if (data_count > 4) { data_count = 0; }
         slow_rms_window += val_mv_slow * val_mv_slow;
         fast_rms_window += val_mv_fast * val_mv_fast;
+        slow_queue[rms_window_count] = val_mv_slow;
+        fast_queue[rms_window_count] = val_mv_fast;
+        rms_window_count += 1;
+        slow_data[data_count] == sqrt(slow_rms_window / rms_window_count);
+        fast_data[data_count] == sqrt(fast_rms_window / rms_window_count);
+        data_count += 1;
       }
-
+      else{
+        if (data_count > 4) { data_count = 0; }
+        if (full_inc > 19) { full_inc = 0; }
+        slow_rms_window -= slow_queue[full_inc];
+        fast_rms_window -= fast_queue[full_inc];
+        slow_queue[full_inc] = val_mv_slow;
+        fast_queue[full_inc] = val_mv_fast;
+        slow_data[data_count] == sqrt(slow_rms_window / 20);
+        fast_data[data_count] == sqrt(fast_rms_window / 20);
+        data_count += 1;
+        full_inc += 1;
+      }
+      LOG_ERR();
+      LOG_ERR("Could not set motor driver 1 (PWM0)");
 
       //modulate LED1 brightness based on adc channel 0 voltage
       err = pwm_set_pulse_dt(&mtr_drv1, mtr_drv1.period * (float) val_mv_slow / FIFTY_MV); // % duty cycle based on ADC0 reading
@@ -349,7 +378,7 @@ void main(void)
       }
 
       // send a notification that "data" is ready to be read...
-      err = send_data_notification(current_conn, slow_data, NUM_MEASUREMENT_PTS);
+      err = send_data_notification(current_conn, slow_data, 1);
       if (err) {
         LOG_ERR("Could not send BT notification (err: %d)", err);
       }
