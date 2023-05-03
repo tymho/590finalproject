@@ -56,7 +56,6 @@ static const struct adc_dt_spec adc_vslow = ADC_DT_SPEC_GET_BY_ALIAS(vslow);
 static const struct adc_dt_spec adc_vfast = ADC_DT_SPEC_GET_BY_ALIAS(vfast);
 
 /* Bluetooth */
-static uint8_t slow_data[NUM_MEASUREMENT_PTS] = {0};
 static struct bt_conn *current_conn;
 
 struct bt_conn_cb bluetooth_callbacks = {
@@ -90,6 +89,11 @@ static const struct pwm_dt_spec mtr_drv2 = PWM_DT_SPEC_GET(DT_ALIAS(drv2));
 static int32_t val_mv_slow = 0;
 static int32_t val_mv_fast = 0;
 static bool usbregstatus;
+static uint8_t slow_data[NUM_MEASUREMENT_PTS] = {0};
+static uint8_t fast_data[NUM_MEASUREMENT_PTS] = {0};
+float slow_rms_window = 0;
+float fast_rms_window = 0;
+int rms_window_count = 0;
 
 /* Timers */
 //timer for heartbeat
@@ -326,6 +330,12 @@ void main(void)
       val_mv_slow = read_adc_val_slow();
       val_mv_fast = read_adc_val_fast();
       
+      if (rms_window_count < 20){
+        slow_rms_window += val_mv_slow * val_mv_slow;
+        fast_rms_window += val_mv_fast * val_mv_fast;
+      }
+
+
       //modulate LED1 brightness based on adc channel 0 voltage
       err = pwm_set_pulse_dt(&mtr_drv1, mtr_drv1.period * (float) val_mv_slow / FIFTY_MV); // % duty cycle based on ADC0 reading
       if (err) {
@@ -339,7 +349,7 @@ void main(void)
       }
 
       // send a notification that "data" is ready to be read...
-      err = send_data_notification(current_conn, slow_data, 1);
+      err = send_data_notification(current_conn, slow_data, NUM_MEASUREMENT_PTS);
       if (err) {
         LOG_ERR("Could not send BT notification (err: %d)", err);
       }
