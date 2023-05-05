@@ -6,7 +6,7 @@ static K_SEM_DEFINE(bt_init_ok, 1, 1); // blocking thread semaphore
 
 #define DEVICE_NAME CONFIG_BT_DEVICE_NAME
 #define DEVICE_NAME_LEN (sizeof(DEVICE_NAME)-1)
-#define BLE_DATA_POINTS 600 // limited by MTU
+#define BLE_DATA_POINTS 10 // limited by MTU
 
 static uint8_t compliance_data[BLE_DATA_POINTS] = {0};
 static struct bt_remote_srv_cb remote_service_callbacks;
@@ -95,7 +95,7 @@ int send_data_notification(struct bt_conn *conn, uint8_t *value, uint16_t length
 	const struct bt_gatt_attr *attr = &remote_srv.attrs[2];
 
 	params.attr = attr;
-	params.data = &value;
+	params.data = &compliance_data;
 	params.len = length;
 	params.func = on_sent;
 
@@ -138,3 +138,37 @@ int bluetooth_init(struct bt_conn_cb *bt_cb, struct bt_remote_srv_cb *remote_cb)
 
 	return ret;
 }
+
+void set_compliance_data(uint8_t *mic_data)
+{
+	memcpy(compliance_data, mic_data, sizeof(compliance_data));
+	LOG_DBG("Compliance data set via memcpy (size = %d).", sizeof(compliance_data));
+}
+
+uint8_t bluetooth_get_battery_level(void) 
+{
+	uint8_t battery_level;
+
+	battery_level =  bt_bas_get_battery_level();
+	LOG_INF("Battery Level: %d pct", battery_level);
+
+	return battery_level;
+}
+
+void bluetooth_set_battery_level(int level, int nominal_batt_mv)
+{
+	int err;
+	float normalized_level;
+	
+	//LOG_DBG("Raw Battery Level: %d", level);
+
+	normalized_level = (float)level*100.0/(float)nominal_batt_mv;
+	
+	//LOG_INF("Normalized Battery Level: %f", normalized_level);
+
+	err = bt_bas_set_battery_level((int)normalized_level);
+	if (err) {
+		LOG_ERR("BAS set error (err = %d)", err);
+	}
+}
+

@@ -13,6 +13,7 @@
 
 / {
   aliases {
+    vbat = &vbat;
     vslow = &vslow;
     vfast = &vfast;
     heartbeat= &led0;
@@ -24,7 +25,7 @@
     drv2 = &drv2;
   };
   zephyr,user {
-    io-channels = <&adc 0>, <&adc 1>; // need to "activate" these channels for IO usage
+    io-channels = <&adc 0>, <&adc 1>, <&adc 2>; // need to "activate" these channels for IO usage
   };
   leds {
     compatible = "gpio-leds";
@@ -55,7 +56,7 @@
   zephyr,gain = "ADC_GAIN_4"; // gain factor to scale ref voltage (1/gain)
   zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
   zephyr,input-positive = <NRF_SAADC_AIN0>; // P0.02
-  zephyr,input-negative = <NRF_SAADC_AIN3>; // P0.31
+  zephyr,input-negative = <NRF_SAADC_AIN7>; // P0.31
   zephyr,resolution = <12>; // bit depth
   };
   vfast: channel@1 {
@@ -63,8 +64,16 @@
     zephyr,reference = "ADC_REF_INTERNAL"; // voltage ref for SA (0.6 V)
     zephyr,gain = "ADC_GAIN_4"; // gain factor to scale ref voltage (1/gain)
     zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
-    zephyr,input-positive = <NRF_SAADC_AIN1>; // P0.03
-    zephyr,input-negative = <NRF_SAADC_AIN2>; // P0.04
+    zephyr,input-positive = <NRF_SAADC_AIN5>; // P0.29
+    zephyr,input-negative = <NRF_SAADC_AIN6>; // P0.30
+    zephyr,resolution = <12>; // bit depth
+  };
+  vbat: channel@2 {
+    reg = <2>; // channel number
+    zephyr,reference = "ADC_REF_INTERNAL"; // voltage ref for SA (0.6 V)
+    zephyr,gain = "ADC_GAIN_1_6"; // gain factor to scale ref voltage (1/gain)
+    zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+    zephyr,input-positive = <NRF_SAADC_AIN4>; // P0.28
     zephyr,resolution = <12>; // bit depth
   };
   status = "okay"; // enable the ADC
